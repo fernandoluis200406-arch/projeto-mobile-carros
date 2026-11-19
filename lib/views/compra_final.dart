@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'CarrinhoService.dart';
+import '../services/carrinho_service.dart';
+import '../services/api_service.dart';
 
 class CompraFinal extends StatefulWidget {
   const CompraFinal({super.key});
@@ -13,6 +14,7 @@ class _CompraFinalState extends State<CompraFinal> {
   final nomeController = TextEditingController();
   final cpfController = TextEditingController();
   final telefoneController = TextEditingController();
+  bool enviando = false;
 
   @override
   void dispose() {
@@ -50,7 +52,7 @@ class _CompraFinalState extends State<CompraFinal> {
   // CONFIRMAR COMPRA
   // =========================================================
 
-  void confirmarCompra() {
+  Future<void> confirmarCompra() async {
     if (nomeController.text.trim().isEmpty ||
         cpfController.text.trim().isEmpty ||
         telefoneController.text.trim().isEmpty) {
@@ -59,14 +61,55 @@ class _CompraFinalState extends State<CompraFinal> {
           content: Text('Preencha todos os campos para continuar.'),
         ),
       );
-
       return;
     }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const CompraSucesso()),
-    );
+    if (CarrinhoService.itens.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Seu carrinho está vazio.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      enviando = true;
+    });
+
+    try {
+      final pedido = await ApiService.criarPedido(
+        nomeCliente: nomeController.text.trim(),
+        cpf: cpfController.text.trim(),
+        telefone: telefoneController.text.trim(),
+        carrosIds: CarrinhoService.obterIdsCarros(),
+      );
+
+      if (!mounted) return;
+
+      debugPrint('Pedido criado: ${pedido['id']}');
+      debugPrint('Total: ${pedido['total']}');
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const CompraSucesso(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível realizar o pedido: $e'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+
+      setState(() {
+        enviando = false;
+      });
+    }
   }
 
   @override
@@ -356,21 +399,29 @@ class _CompraFinalState extends State<CompraFinal> {
                   const SizedBox(height: 25),
 
                   // =================================================
-                  // BOTÃO
-                  // =================================================
+// BOTÃO
+// =================================================
                   SizedBox(
                     width: double.infinity,
                     height: 52,
 
                     child: ElevatedButton.icon(
-                      onPressed: confirmarCompra,
+                      onPressed: enviando ? null : confirmarCompra,
 
-                      icon: const Icon(Icons.check_circle_outline),
+                      icon: enviando
+                          ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                          : const Icon(Icons.check_circle_outline),
 
-                      label: const Text(
-                        'Confirmar compra',
-
-                        style: TextStyle(
+                      label: Text(
+                        enviando ? 'Enviando pedido...' : 'Confirmar compra',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -378,11 +429,9 @@ class _CompraFinalState extends State<CompraFinal> {
 
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
-
                         foregroundColor: Colors.white,
-
+                        disabledBackgroundColor: Colors.grey,
                         elevation: 0,
-
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),

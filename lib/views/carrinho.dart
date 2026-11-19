@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-
-import 'CarrinhoService.dart';
-import 'CompraFinal.dart';
+import 'package:projetomobilecarros/services/carrinho_service.dart';
+import 'package:projetomobilecarros/views/compra_final.dart';
 
 class Carrinho extends StatefulWidget {
   const Carrinho({super.key});
